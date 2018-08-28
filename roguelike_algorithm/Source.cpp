@@ -56,8 +56,18 @@ private:
 public:
 	std::unique_ptr<roguelike[]> rl;
 	std::unique_ptr<std::vector<size_t>[]> rv;
+	std::unique_ptr<std::vector<size_t>[]> rvid;
 	const size_t size() const { return num; }
-	void reset(const size_t num_) { rl.reset(new roguelike[num_]); rv.reset(new std::vector<size_t>[num_]); }
+	void reset(const size_t num_) {
+		rl.reset(new roguelike[num_]);
+		rv.reset(new std::vector<size_t>[num_]);
+		rvid.reset(new std::vector<size_t>[num_]);
+	}
+	void reset() {
+		rl.reset();
+		rv.reset();
+		rvid.reset();
+	}
 	roguelikeAll(const size_t num_) :num(num_) { this->reset(num_); }
 };
 
@@ -140,20 +150,35 @@ void roomOutput(std::vector<size_t>& v_, const size_t x_, const roguelikeAll& rl
 
 void next(const roguelikeAll& rla_) {
 	bool is = false;
+	bool&& is_id = false;
+	size_t id = 0;
 	for (size_t i = 0; i < rla_.size(); ++i) {
 		for (size_t j = i; j < rla_.size(); ++j) {
 			is = false;
-			if (rla_.rl[i].dy1 == rla_.rl[j].dy2 || rla_.rl[i].dy2 == rla_.rl[j].dy1) {
+			if ((is_id=(rla_.rl[i].dy1 == rla_.rl[j].dy2)) || rla_.rl[i].dy2 == rla_.rl[j].dy1) {
+				if(is_id) id = 1;
+				else id = 0;
 				if (rla_.rl[i].dx1 <= rla_.rl[j].dx1&&rla_.rl[i].dx2 > rla_.rl[j].dx1) is = true;
 				else if (rla_.rl[i].dx1 < rla_.rl[j].dx2&&rla_.rl[i].dx2 >= rla_.rl[j].dx2) is = true;
 			}
-			else if (rla_.rl[i].dx1 == rla_.rl[j].dx2 || rla_.rl[i].dx2 == rla_.rl[j].dx1) {
+			else if ((is_id=(rla_.rl[i].dx1 == rla_.rl[j].dx2)) || rla_.rl[i].dx2 == rla_.rl[j].dx1) {
+				if (is_id) id = 3;
+				else id = 2;
 				if (rla_.rl[i].dy1 <= rla_.rl[j].dy1&&rla_.rl[i].dy2 > rla_.rl[j].dy1) is = true;
 				else if (rla_.rl[i].dy1 < rla_.rl[j].dy2&&rla_.rl[i].dy2 >= rla_.rl[j].dy2) is = true;
 			}
 			if (is) {
 				rla_.rv[i].emplace_back(j);
 				rla_.rv[j].emplace_back(i);
+				rla_.rvid[i].emplace_back(id);
+				switch (id)
+				{
+				case 0:rla_.rvid[j].emplace_back(1+4); break;
+				case 1:rla_.rvid[j].emplace_back(0+4); break;
+				case 2:rla_.rvid[j].emplace_back(3+4); break;
+				case 3:rla_.rvid[j].emplace_back(2+4); break;
+				case 8:rla_.rvid[j].emplace_back(8); break;
+				}
 			}
 		}
 	}
@@ -163,31 +188,55 @@ void nextOutput(const roguelikeAll& rla_) {
 	for (size_t k = 0; k < rla_.size(); ++k) {
 		std::cout << (k + 1) << ':';
 		for (size_t i = 0; i < rla_.rv[k].size(); ++i) {
-			std::cout << (rla_.rv[k][i] + 1) << ',';
+			std::cout << (rla_.rv[k][i] + 1);
+			switch (rla_.rvid[k][i])
+			{
+			case 0:std::cout << 'd';break;
+			case 1:std::cout << 'u'; break;
+			case 2:std::cout << 'r'; break;
+			case 3:std::cout << 'l'; break;
+			case 4:std::cout << 'D'; break;
+			case 5:std::cout << 'U'; break;
+			case 6:std::cout << 'R'; break;
+			case 7:std::cout << 'L'; break;
+			case 8:std::cout << '?'; break;
+			}
+			std::cout << ',';
 		}
 		std::cout << std::endl;
 	}
+}
+
+constexpr size_t x = 40;
+constexpr size_t y = 30;
+
+void roguelikeMain() {
+	std::vector<size_t> vint(x*y, 0);
+	//ローグライクのデータを管理
+	roguelikeAll rla(8);
+	//マップを分割
+	division(x, y, rla);
+	divisionOutput(vint, x, rla);
+	//分割したマップに部屋を生成
+	room(x, y, rla);
+	roomOutput(vint, x, rla);
+	//画面へ出力
+	//output(vint, x, y);
+	//
+	next(rla);
+	//nextOutput(rla);
+
+	rla.reset();
 }
 
 int main() {
 
 	srand((unsigned int)time(nullptr));
 
-	constexpr size_t x = 40;
-	constexpr size_t y = 30;
-	std::vector<size_t> vint(x*y, 0);
+	for (size_t i = 0; i < 1000000; ++i) {
+		roguelikeMain();
+	}
 
-	roguelikeAll rla(8);
-	division(x, y, rla);
-	divisionOutput(vint, x, rla);
-
-	room(x, y, rla);
-	roomOutput(vint, x, rla);
-
-	output(vint, x, y);
-
-	next(rla);
-	nextOutput(rla);
 
 	return 0;
 }
